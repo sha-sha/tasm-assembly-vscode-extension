@@ -1,0 +1,182 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "x86 Assembly (TASM)",
+	"scopeName": "source.tasm",
+	"fileTypes": [
+		"asm",
+		"asx"
+	],
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#registers"
+		},
+		{
+			"include": "#directives"
+		},
+		{
+			"include": "#instructions"
+		},
+		{
+			"include": "#operators_keywords"
+		},
+		{
+			"include": "#labels"
+		},
+		{
+			"include": "#punctuation"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.semicolon.asm",
+					"match": ";.*$"
+				}
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.single.asm",
+					"begin": "'",
+					"end": "'",
+					"patterns": [
+						{
+							"name": "constant.character.escape.asm",
+							"match": "''"
+						}
+					]
+				},
+				{
+					"name": "string.quoted.double.asm",
+					"begin": "\"",
+					"end": "\"",
+					"patterns": [
+						{
+							"name": "constant.character.escape.asm",
+							"match": "\"\""
+						}
+					]
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"comment": "Hexadecimal numbers like 12h, 0Ah, 0FFFFh. TASM requires a leading 0 if it starts with A-F.",
+					"name": "constant.numeric.hex.asm",
+					"match": "\\b(0[a-fA-F0-9][a-fA-F0-9_]*[hH]|[1-9a-fA-F][0-9a-fA-F_]*[hH]|[0-9][hH])\\b"
+				},
+				{
+					"comment": "Binary numbers like 1010b, 01b",
+					"name": "constant.numeric.binary.asm",
+					"match": "\\b[01][01_]*[bB]\\b"
+				},
+				{
+					"comment": "Decimal numbers like 123, 123d. The 'd' is optional.",
+					"name": "constant.numeric.decimal.asm",
+					"match": "\\b[0-9][0-9_]*[dD]?\\b"
+				},
+				{
+					"comment": "Alternative hex like 0x1A (less common in pure TASM style but seen)",
+					"name": "constant.numeric.hex.alternate.asm",
+					"match": "\\b0[xX][0-9a-fA-F][0-9a-fA-F_]*\\b"
+				}
+			]
+		},
+		"labels": {
+			"patterns": [
+				{
+					"comment": "Label definition: myLabel: , .localLabel:, @@:",
+					"name": "entity.name.function.label.asm",
+					"match": "^\\s*([a-zA-Z_@$.?][a-zA-Z0-9_@$.?]*):"
+				},
+				{
+					"comment": "Label usage (general identifier, matched after specific keywords)",
+					"name": "variable.name.label.asm",
+					"match": "\\b([a-zA-Z_@$.?][a-zA-Z0-9_@$.?]*)(?![:])\\b"
+				}
+			]
+		},
+		"registers": {
+			"patterns": [
+				{
+					"name": "variable.language.register.asm",
+					"match": "\\b(?i:(ax|ah|al|bx|bh|bl|cx|ch|cl|dx|dh|dl|cs|ds|ss|es|fs|gs|si|di|bp|sp|ip|flags|eax|ebx|ecx|edx|esi|edi|ebp|esp|eip|eflags|rax|rbx|rcx|rdx|rsi|rdi|rbp|rsp|rip|rflags|cr[0-4]|dr[0-7]|st\\([0-7]\\)|st|mm[0-7]|xmm[0-15]|ymm[0-15]|zmm[0-31]))\\b"
+				}
+			]
+		},
+		"directives": {
+			"patterns": [
+				{
+					"name": "keyword.control.directive.asm",
+					"match": "\\b(?i:(SEGMENT|ENDS|PROC|ENDP|DB|DW|DD|DQ|DT|EQU|ORG|END|MODEL|STACK|DATASEG|CODESEG|ASSUME|PUBLIC|EXTRN|INCLUDE|INCLUDELIB|MACRO|ENDM|IF|ELSE|ENDIF|IFDEF|IFNDEF|ALIGN|LABEL|GROUP|TITLE|SUBTTL|COMMENT|LOCAL|EXITM|IRP|IRPC|REPT|PURGE|EVEN|USE16|USE32|IDEAL|MASM|P8086|P186|P286|P386|P486|P586|P686))\\b"
+				},
+				{
+					"name": "keyword.control.directive.model.asm",
+					"comment": "Values for .MODEL directive",
+					"match": "\\b(?i:(TINY|SMALL|MEDIUM|COMPACT|LARGE|HUGE|FLAT))\\b"
+				},
+				{
+					"name": "storage.type.asm",
+					"comment": "Data type specifiers like BYTE, WORD used with PTR or directives",
+					"match": "\\b(?i:(BYTE|WORD|DWORD|FWORD|PWORD|QWORD|TBYTE))\\b"
+				}
+			]
+		},
+		"instructions": {
+			"patterns": [
+				{
+					"name": "keyword.control.instruction.asm",
+					"match": "\\b(?i:(AAA|AAD|AAM|AAS|ADC|ADD|AND|CALL|CBW|CLC|CLD|CLI|CMC|CMP|CMPSB|CMPSW|CMPSD|CWD|DAA|DAS|DEC|DIV|HLT|IDIV|IMUL|IN|INC|INT|INTO|IRET|JA|JAE|JB|JBE|JC|JCXZ|JE|JG|JGE|JL|JLE|JMP|JNA|JNB|JNC|JNE|JNG|JNL|JNO|JNP|JNS|JNZ|JO|JP|JPE|JPO|JS|JZ|LAHF|LDS|LEA|LES|LOCK|LODSB|LODSW|LODSD|LOOP|LOOPE|LOOPNE|LOOPNZ|LOOPZ|MOV|MOVSB|MOVSW|MOVSD|MOVSX|MOVZX|MUL|NEG|NOP|NOT|OR|OUT|POP|POPA|POPF|PUSH|PUSHA|PUSHF|RCL|RCR|REP|REPE|REPNE|RET|RETF|RETN|ROL|ROR|SAHF|SAL|SAR|SBB|SCASB|SCASW|SCASD|SHL|SHLD|SHR|SHRD|STC|STD|STI|STOSB|STOSW|STOSD|SUB|TEST|WAIT|XADD|XCHG|XLAT|XOR|ENTER|LEAVE|BOUND|ARPL|VERR|VERW|SGDT|SIDT|LGDT|LIDT|STR|LTR|SMSW|LMSW|CLTS|INVD|WBINVD|INVLPG|CPUID|RDMSR|WRMSR|RDTSC|RDPMC|RSM))\\b"
+				},
+				{
+					"name": "keyword.control.instruction.fpu.asm",
+					"match": "\\b(?i:(F2XM1|FABS|FADD|FADDP|FBLD|FBSTP|FCHS|FCLEX|FCOM|FCOMP|FCOMPP|FCOS|FDECSTP|FDIV|FDIVP|FDIVR|FDIVRP|FFREE|FIADD|FICOM|FICOMP|FIDIV|FIDIVR|FILD|FIMUL|FINCSTP|FINIT|FIST|FISTP|FISUB|FISUBR|FLD|FLD1|FLDCW|FLDENV|FLDL2E|FLDL2T|FLDLG2|FLDLN2|FLDPI|FLDZ|FMUL|FMULP|FNCLEX|FNINIT|FNOP|FNSAVE|FNSTCW|FNSTENV|FNSTSW|FPATAN|FPREM|FPREM1|FPTAN|FRNDINT|FRSTOR|FSAVE|FSCALE|FSIN|FSINCOS|FSQRT|FST|FSTCW|FSTENV|FSTP|FSTSW|FSUB|FSUBP|FSUBR|FSUBRP|FTST|FUCOM|FUCOMP|FUCOMPP|FWAIT|FXAM|FXCH|FXTRACT|FYL2X|FYL2XPI))\\b"
+				}
+			]
+		},
+		"operators_keywords": {
+			"patterns": [
+				{
+					"name": "keyword.operator.asm",
+					"match": "\\b(?i:(OFFSET|PTR|SEG|TYPE|LENGTH|SIZE|THIS|SHORT|NEAR|FAR|HIGH|LOW|DUP|MASK|WIDTH|MOD|NOT|AND|OR|XOR|SHL|SHR|EQ|NE|LT|LE|GT|GE))\\b"
+				}
+			]
+		},
+		"punctuation": {
+			"patterns": [
+				{
+					"name": "punctuation.separator.comma.asm",
+					"match": ","
+				},
+				{
+					"name": "punctuation.definition.bracket.square.asm",
+					"match": "[\\[\\]]"
+				},
+				{
+					"name": "punctuation.definition.bracket.round.asm",
+					"match": "[()]"
+				},
+				{
+					"name": "punctuation.operator.arithmetic.asm",
+					"match": "[+\\-*/%]"
+				},
+				{
+					"name": "punctuation.operator.bitwise.asm",
+					"match": "[&|^~]"
+				}
+			]
+		}
+	}
+}
