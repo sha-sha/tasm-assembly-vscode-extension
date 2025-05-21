@@ -11,14 +11,19 @@ import {
   DiagnosticSeverity,
   TextDocumentSyncKind,
   InitializeResult,
-  TextDocumentChangeEvent
+  TextDocumentChangeEvent,
+  WorkspaceFolder
 } from 'vscode-languageserver/node';
+
+import { URI } from 'vscode-uri'
 
 import {
   TextDocument
 } from 'vscode-languageserver-textdocument';
+import * as path from 'path';
 
 import Lexer from './lexer'; // Import your lexer here
+import { TokenType } from './token';
 
 // Create a connection for the server. The server uses Node's IPC
 // mechanism. The connection is created via stdin/stdout.
@@ -30,6 +35,8 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
+// Cache for workspace folders
+let workspaceFoldersCache: WorkspaceFolder[] | null = null;
 
 connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
@@ -177,22 +184,76 @@ documents.onDidChangeContent(change => {
   validateTextDocument(change.document);
 });
 
+async function getRelativePath(uri: string): Promise<string | null> {
+  try {
+    const textDocumentUri = URI.parse(uri);
+    const textDocumentFsPath = textDocumentUri.fsPath;
+
+    const currentWorkspaceFolders = workspaceFoldersCache || await connection.workspace.getWorkspaceFolders();
+    if (!currentWorkspaceFolders || currentWorkspaceFolders.length === 0) {
+      connection.console.warn(`No workspace folders available. Cannot determine relative path for ${textDocumentFsPath}.`);
+      // Handle case where the file might not be part of a defined workspace folder
+      // You might treat its own directory as a "root" or skip relative path calculation
+      return null;
+    }
+    // Find the workspace folder that contains the changed document
+    // We are looking for the root folder whose path is a prefix of the document's path.
+    // If multiple roots could match (e.g. nested), typically the longest match is the most specific.
+    let bestMatchingRoot: WorkspaceFolder | null = null;
+    for (const folder of currentWorkspaceFolders) {
+      const folderUri = URI.parse(folder.uri);
+      const folderFsPath = folderUri.fsPath;
+
+      if (textDocumentFsPath.startsWith(folderFsPath + path.sep) || textDocumentFsPath === folderFsPath) {
+        // If it's a better (more specific/longer) match than a previous one
+        if (!bestMatchingRoot || folderFsPath.length > URI.parse(bestMatchingRoot.uri).fsPath.length) {
+          bestMatchingRoot = folder;
+        }
+      }
+    }
+    if (bestMatchingRoot) {
+      const rootFolderFsPath = URI.parse(bestMatchingRoot.uri).fsPath;
+      const relativePath = path.relative(rootFolderFsPath, textDocumentFsPath);
+
+      connection.console.log(`Changed document absolute path: ${textDocumentFsPath}`);
+      connection.console.log(`Project root folder: ${rootFolderFsPath}`);
+      connection.console.log(`Path relative to project root: ${relativePath}`);
+
+      return textDocumentFsPath;
+    } else {
+      connection.console.warn(`Changed document ${textDocumentFsPath} is not within any known workspace folder.`);
+      // Handle files opened from outside the workspace folders
+    }
+  } catch (error) {
+    connection.console.error(`Error processing didChangeContent for ${uri}: ${error}`);
+  }
+
+  return null
+}
+
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   // In this simple example we get the settings for every validate run.
   const settings = await getDocumentSettings(textDocument.uri);
+
+  const relativePath = await getRelativePath(textDocument.uri);
+
 
   // The validator creates diagnostics for all uppercase words length 2 and more
   const text = textDocument.getText();
   const problems: number = 0;
   const diagnostics: Diagnostic[] = [];
 
-  const lexer = new Lexer(text);
-  while (true) {
+  const lexer = new Lexer(relativePath || textDocument.uri, text);
+  let i = 0;
+  while (i < 400) {
+    i++;
     const token = lexer.getNextToken();
     if (token === null) {
       break;
     }
-    connection.console.log(`token: ${token.type}, lexeme: ${token.lexeme}, literal: ${token.literal}, line: ${token.line}`);
+    if (token.type === TokenType.UNKNOWN) {
+      connection.console.log(`token: ${TokenType[token.type]}, lexeme: ${token.lexeme}, literal: ${token.literal}, location: ${token.mapping}`);
+    }
   }
 
   // --- TASM Specific Validation Logic Goes Here ---

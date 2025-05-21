@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -13,8 +46,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_1 = require("vscode-languageserver/node");
+const vscode_uri_1 = require("vscode-uri");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
+const path = __importStar(require("path"));
 const lexer_1 = __importDefault(require("./lexer")); // Import your lexer here
+const token_1 = require("./token");
 // Create a connection for the server. The server uses Node's IPC
 // mechanism. The connection is created via stdin/stdout.
 const connection = (0, node_1.createConnection)(node_1.ProposedFeatures.all);
@@ -23,6 +59,8 @@ const documents = new node_1.TextDocuments(vscode_languageserver_textdocument_1.
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
+// Cache for workspace folders
+let workspaceFoldersCache = null;
 connection.onInitialize((params) => {
     const capabilities = params.capabilities;
     // Does the client support the `workspace/configuration` request?
@@ -140,21 +178,71 @@ documents.onDidClose(e => {
 documents.onDidChangeContent(change => {
     validateTextDocument(change.document);
 });
+function getRelativePath(uri) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const textDocumentUri = vscode_uri_1.URI.parse(uri);
+            const textDocumentFsPath = textDocumentUri.fsPath;
+            const currentWorkspaceFolders = workspaceFoldersCache || (yield connection.workspace.getWorkspaceFolders());
+            if (!currentWorkspaceFolders || currentWorkspaceFolders.length === 0) {
+                connection.console.warn(`No workspace folders available. Cannot determine relative path for ${textDocumentFsPath}.`);
+                // Handle case where the file might not be part of a defined workspace folder
+                // You might treat its own directory as a "root" or skip relative path calculation
+                return null;
+            }
+            // Find the workspace folder that contains the changed document
+            // We are looking for the root folder whose path is a prefix of the document's path.
+            // If multiple roots could match (e.g. nested), typically the longest match is the most specific.
+            let bestMatchingRoot = null;
+            for (const folder of currentWorkspaceFolders) {
+                const folderUri = vscode_uri_1.URI.parse(folder.uri);
+                const folderFsPath = folderUri.fsPath;
+                if (textDocumentFsPath.startsWith(folderFsPath + path.sep) || textDocumentFsPath === folderFsPath) {
+                    // If it's a better (more specific/longer) match than a previous one
+                    if (!bestMatchingRoot || folderFsPath.length > vscode_uri_1.URI.parse(bestMatchingRoot.uri).fsPath.length) {
+                        bestMatchingRoot = folder;
+                    }
+                }
+            }
+            if (bestMatchingRoot) {
+                const rootFolderFsPath = vscode_uri_1.URI.parse(bestMatchingRoot.uri).fsPath;
+                const relativePath = path.relative(rootFolderFsPath, textDocumentFsPath);
+                connection.console.log(`Changed document absolute path: ${textDocumentFsPath}`);
+                connection.console.log(`Project root folder: ${rootFolderFsPath}`);
+                connection.console.log(`Path relative to project root: ${relativePath}`);
+                return textDocumentFsPath;
+            }
+            else {
+                connection.console.warn(`Changed document ${textDocumentFsPath} is not within any known workspace folder.`);
+                // Handle files opened from outside the workspace folders
+            }
+        }
+        catch (error) {
+            connection.console.error(`Error processing didChangeContent for ${uri}: ${error}`);
+        }
+        return null;
+    });
+}
 function validateTextDocument(textDocument) {
     return __awaiter(this, void 0, void 0, function* () {
         // In this simple example we get the settings for every validate run.
         const settings = yield getDocumentSettings(textDocument.uri);
+        const relativePath = yield getRelativePath(textDocument.uri);
         // The validator creates diagnostics for all uppercase words length 2 and more
         const text = textDocument.getText();
         const problems = 0;
         const diagnostics = [];
-        const lexer = new lexer_1.default(text);
-        while (true) {
+        const lexer = new lexer_1.default(relativePath || textDocument.uri, text);
+        let i = 0;
+        while (i < 400) {
+            i++;
             const token = lexer.getNextToken();
             if (token === null) {
                 break;
             }
-            connection.console.log(`token: ${token.type}, lexeme: ${token.lexeme}, literal: ${token.literal}, line: ${token.line}`);
+            if (token.type === token_1.TokenType.UNKNOWN) {
+                connection.console.log(`token: ${token_1.TokenType[token.type]}, lexeme: ${token.lexeme}, literal: ${token.literal}, location: ${token.mapping}`);
+            }
         }
         // --- TASM Specific Validation Logic Goes Here ---
         // You will need to implement a parser or simple regex checks
