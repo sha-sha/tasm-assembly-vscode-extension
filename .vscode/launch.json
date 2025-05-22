@@ -6,11 +6,34 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Extension",
+			"name": "Run Extension Client",
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [ // <-- CRITICAL FOR CLIENT
+				"${workspaceFolder}/client/out/**/*.js",
+			],
+		},
+		{
+			"name": "Attach to Server", // Debugs server.ts (if client starts it)
+			"type": "node", // Or "pwa-node"
+			"request": "attach",
+			"port": 6009, // Must match the port your server is inspecting on
+			"restart": true,
+			"outFiles": [ // <-- CRITICAL FOR SERVER
+				"${workspaceFolder}/server/out/**/*.js" // Adjust if your server output is elsewhere
+			],
+			"sourceMaps": true,
+		},
+	],
+	"compounds": [ // Optional: To launch both client and server debugger easily
+		{
+			"name": "Extension + Server (Attach)",
+			"configurations": [
+				"Run Extension Client",
+				"Attach to Server"
 			]
 		}
 	]

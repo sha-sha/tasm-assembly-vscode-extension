@@ -1,60 +1,155 @@
-enum TokenType {
-  // Single-character tokens
-  LEFT_PAREN, RIGHT_PAREN,
-  LEFT_BRACE, RIGHT_BRACE,
-  LEFT_BRACKET, RIGHT_BRACKET,
-  COLON,
-  COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
+enum KeywordId {
+  // keyword tokens
+  IDEAL = "IDEAL",
+  MODEL = "MODEL",
+  SMALL = "SMALL",
+  STACK = "STACK",
+  JUMPS = "JUMPS",
+  P186 = "P186",
+  EQU = "EQU",
+  DATASEG = "DATASEG",
+  CODESEG = "CODESEG",
+  DB = "DB",
+  DW = "DW",
+  DD = "DD",
+  DQ = "DQ",
+  DT = "DT",
+  DUP = "DUP",
+  PROC = "PROC",
+  ENDP = "ENDP",
+  MACRO = "MACRO",
+  ENDM = "ENDM",
+  INCLUDE = "INCLUDE",
+  OFFSET = "OFFSET",
+}
 
-  // One or two character tokens.
-  BANG, BANG_EQUAL,
-  EQUAL, EQUAL_EQUAL,
-  GREATER, GREATER_EQUAL,
-  LESS, LESS_EQUAL,
+enum AsmCommandId {
+  // Assembly instructions
+  MOV = "MOV",
+  ADD = "ADD",
+  SUB = "SUB",
+  MUL = "MUL",
+  DIV = "DIV",
+  INC = "INC",
+  DEC = "DEC",
+  JMP = "JMP",
+  CALL = "CALL",
+  RET = "RET",
+  PUSH = "PUSH",
+  POP = "POP",
+  CMP = "CMP",
+  TEST = "TEST",
+  JE = "JE",
+  JNE = "JNE",
+  JG = "JG",
+  JL = "JL",
+  JGE = "JGE",
+  JLE = "JLE",
+  AND = "AND",
+  OR = "OR",
+  XOR = "XOR",
+  NOT = "NOT",
+  SHL = "SHL",
+  SHR = "SHR",
+  PUSHA = "PUSHA",
+  POPA = "POPA",
+}
+
+enum BasicTokenId {
+  // Single-character tokens
+  LEFT_PAREN = "(",
+  RIGHT_PAREN = ")",
+  LEFT_BRACE = "{",
+  RIGHT_BRACE = "}",
+  LEFT_BRACKET = "[",
+  RIGHT_BRACKET = "]",
+  COLON = ":",
+  COMMA = ",",
+  DOT = ".",
+  MINUS = "-",
+  PLUS = "+",
+  SEMICOLON = ";",
+  SLASH = "/",
+  STAR = "*",
+  AT = "@",
+  NEWLINE = "\\n",
 
   // Literals.
-  IDENTIFIER, STRING, NUMBER,
+  IDENTIFIER = "IDENTIFIER",
+  STRING = "STRING",
+  NUMBER = "NUMBER",
+  COMMENT = "COMMENT",
+  UNKNOWN = "UNKNOWN",
 
-  KEYWORD,
+  EOF = "EOF",
 
-  UNKNOWN,
+}
 
-  EOF
 
+type TokenId = KeywordId | BasicTokenId | AsmCommandId;
+
+class Location {
+  line: number;
+  column: number;
+  constructor(line: number, column: number) {
+    this.line = line;
+    this.column = column;
+  }
+  copy(): Location {
+    return new Location(this.line, this.column);
+  }
+
+  toString(): string {
+    return `${this.line}:${this.column}`;
+  }
+}
+
+class ParseRange {
+  from: Location
+  to: Location
+  constructor(from: Location, to: Location) {
+    this.from = from.copy();
+    this.to = to.copy();
+  }
+
+  copy(): ParseRange {
+    return new ParseRange(this.from.copy(), this.to.copy())
+  }
 }
 
 class Mapping {
   name: string;
-  line: number;
-  column: number;
+  range: ParseRange;
 
-  constructor(name: string, line: number, column: number) {
+  constructor(name: string, range: ParseRange) {
     this.name = name;
-    this.line = line;
-    this.column = column;
+    this.range = range;
   }
 
   copy(): Mapping {
-    return new Mapping(this.name, this.line, this.column);
+    return new Mapping(this.name, this.range)
   }
 
+
   toString(): string {
-    return `file://${this.name}:${this.line}:${this.column}`;
+    return `${this.name}:${this.range.from}`;
   }
 }
 
 class Token {
-  type: TokenType;
-  lexeme: string;
-  literal: string | number | null;
+  id: TokenId;
+  text: string;
   mapping: Mapping;
 
-  constructor(type: TokenType, lexeme: string, literal: any, mapping: Mapping) {
-    this.type = type;
-    this.lexeme = lexeme;
-    this.literal = literal;
+  constructor(id: TokenId, text: string, mapping: Mapping) {
+    this.id = id;
+    this.text = text;
     this.mapping = mapping;
+  }
+
+  toString(): string {
+    return `Token(${this.id}, ${this.text}, ${this.mapping})`;
   }
 }
 
-export { Token, TokenType, Mapping };
+export { Token, BasicTokenId, KeywordId, AsmCommandId, TokenId, Mapping, Location, ParseRange };

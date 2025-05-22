@@ -86,3 +86,4 @@ function deactivate() {
     }
     return client.stop();
 }
+//# sourceMappingURL=extension.js.map

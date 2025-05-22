@@ -23,7 +23,9 @@ import {
 import * as path from 'path';
 
 import Lexer from './lexer'; // Import your lexer here
-import { TokenType } from './token';
+import { BasicTokenId, ParseRange, TokenId } from './token';
+import { Parser } from './parser';
+import { Reporter } from './reporter';
 
 // Create a connection for the server. The server uses Node's IPC
 // mechanism. The connection is created via stdin/stdout.
@@ -243,19 +245,48 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   const problems: number = 0;
   const diagnostics: Diagnostic[] = [];
 
-  const lexer = new Lexer(relativePath || textDocument.uri, text);
-  let i = 0;
-  while (i < 400) {
-    i++;
-    const token = lexer.getNextToken();
-    if (token === null) {
-      break;
+  class ServerReporter implements Reporter {
+    log(text: string): void {
+      connection.console.log(`xxx: ${text}`);
     }
-    if (token.type === TokenType.UNKNOWN) {
-      connection.console.log(`token: ${TokenType[token.type]}, lexeme: ${token.lexeme}, literal: ${token.literal}, location: ${token.mapping}`);
+    reportError(text: string, range: ParseRange): void {
+      connection.console.error(`Error parsing document: ${text}`);
+      diagnostics.push({
+        severity: DiagnosticSeverity.Error,
+        range: {
+          start: { line: range.from.line - 1, character: range.from.column - 1 },
+          end: { line: range.to.line - 1, character: range.to.column - 1 }
+        },
+        message: text,
+        source: 'tasm-language-server'
+      });
     }
-  }
 
+  }
+  const reporter = new ServerReporter()
+  // const test_lexer = new Lexer(relativePath || textDocument.uri, text, reporter);
+  // connection.console.log(test_lexer.tokenize().map(t => `${t.id} ${t.text} ${t.mapping.toString()}`).join('\n'));
+
+  const lexer = new Lexer(relativePath || textDocument.uri, text, reporter);
+  const parser = new Parser(lexer, reporter);
+  try {
+    const ast = parser.parse()
+    connection.console.log(`ast: ${ast}`);
+    if (ast !== null) {
+      connection.console.log(ast.pretty(0));
+    }
+  } catch (error) {
+    connection.console.error(`Error parsing document: ${error}`);
+    diagnostics.push({
+      severity: DiagnosticSeverity.Error,
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 }
+      },
+      message: `Parsing error: ${error}`,
+      source: 'tasm-language-server'
+    });
+  }
   // --- TASM Specific Validation Logic Goes Here ---
   // You will need to implement a parser or simple regex checks
   // to find errors, warnings, etc. in the TASM code.
