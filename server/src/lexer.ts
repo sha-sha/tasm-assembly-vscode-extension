@@ -80,13 +80,14 @@ class Lexer {
 
   private advance(text: string) {
     this.position += text.length;
-    const lines = text.split('\n').length - 1
-    if (lines > 0) {
-      this.location.column = 1;
+    const lines = text.split('\n')
+    const last = lines[lines.length - 1]
+    if (lines.length > 1) {
+      this.location.column = last.length + 1;
     } else {
       this.location.column += text.length;
     }
-    this.location.line += lines;
+    this.location.line += lines.length - 1;
   }
 
   private advanceTilEndOfLine() {
@@ -153,7 +154,8 @@ class Lexer {
       this.advance(match[0]);
       if (newLinePos > 0) {
         location.column += newLinePos
-        return new Token(BasicTokenId.NEWLINE, '\\n', this.createMapping(location));
+        const token = new Token(BasicTokenId.NEWLINE, '\\n', this.createMapping(location));
+        return token
       }
     }
     if (this.position >= this.input.length) {

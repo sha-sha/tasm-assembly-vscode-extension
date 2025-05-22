@@ -52,6 +52,10 @@ class Parser {
   private parseFile(): AstRoot {
     const root = new AstRoot(new Mapping(this.lexer.filename, new ParseRange(new Location(1, 1), new Location(1, 1))));
     var token = this.peek();
+    if (token.id === BasicTokenId.NEWLINE) {
+      this.consume(BasicTokenId.NEWLINE)
+      token = this.peek()
+    }
     try {
       if (ConfigTokens.has(token.id)) {
         root.children.push(this.parseConfigHeader());
@@ -60,7 +64,9 @@ class Parser {
       // DATASEG, CODESEG, MACRO, INCLUDE, constants
       var i = 0
       while (token.id !== BasicTokenId.EOF && token.id !== BasicTokenId.UNKNOWN) {
-        if (token.id === KeywordId.DATASEG) {
+        if (token.id === BasicTokenId.NEWLINE) {
+          this.consume(BasicTokenId.NEWLINE)
+        } else if (token.id === KeywordId.DATASEG) {
           root.children.push(this.parseDataSegment())
         } else if (token.id === KeywordId.CODESEG) {
           root.children.push(this.parseCodeSegment())
@@ -198,12 +204,13 @@ class Parser {
             this.consumeTilNewLine()
             continue
           }
-        }
-        if (this.peek().id !== BasicTokenId.NEWLINE) {
-          operand2 = this.parseOperand()
-          if (!operand2) {
-            this.consumeTilNewLine()
-            continue
+          if (this.peek().id === BasicTokenId.COMMA) {
+            this.consume(BasicTokenId.COMMA)
+            operand2 = this.parseOperand()
+            if (!operand2) {
+              this.consumeTilNewLine()
+              continue
+            }
           }
         }
         this.consumeNewline()
@@ -215,13 +222,15 @@ class Parser {
     return nodes
   }
 
-  private parseOperand(): AstOperand | undefined {
+  private parseOperand(): AstOperand | string | undefined {
     // operand: register / memory / immediate
     const token = this.peek()
     if (token.id === BasicTokenId.IDENTIFIER) {
       const name = this.consume(BasicTokenId.IDENTIFIER)
       if (AsmRegisters.has(name.text.toLowerCase())) {
         return new AstRegister(name.mapping, name.text)
+      } else {
+        return name.text
       }
       this.reporter.reportError('expected register', name.mapping.range)
     } else if (token.id === KeywordId.OFFSET) {
@@ -247,6 +256,9 @@ class Parser {
         }
         const end = this.consume(BasicTokenId.RIGHT_BRACKET)
         return new AstMemoryExpression(newMapping(start, end), base, offset)
+      } else {
+        const end = this.consume(BasicTokenId.RIGHT_BRACKET)
+        return new AstMemoryExpression(newMapping(start, end), base, offset)
       }
     } else if (token.id === BasicTokenId.NUMBER) {
       const number = this.consume(BasicTokenId.NUMBER)
@@ -265,6 +277,9 @@ class Parser {
       token = this.peek();
     }
     const endToken = this.consume(KeywordId.ENDM)
+    if (this.peek().id !== BasicTokenId.NEWLINE) {
+      const name2 = this.consume(BasicTokenId.IDENTIFIER)
+    }
     this.consumeNewline()
     return node.updateRange(endToken.mapping.range.to)
   }
@@ -307,6 +322,12 @@ class Parser {
       node.children.push(n)
     }
     this.consume(KeywordId.ENDP)
+    if (this.peek().id !== BasicTokenId.NEWLINE) {
+      const name2 = this.consume(BasicTokenId.IDENTIFIER)
+      if (name2.text !== name.text) {
+        this.reporter.reportError(`Unmatched ENDP: '${name2.text}' should be '${name.text}'`, name2.mapping.range)
+      }
+    }
     this.consumeNewline()
     return node
   }

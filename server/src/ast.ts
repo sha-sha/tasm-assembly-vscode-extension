@@ -159,7 +159,7 @@ export class AstMemoryExpression extends AstNode {
   }
 }
 
-export type AstOperand = AstRegister | AstMemoryExpression | AstMemoryOffset | AstNumber
+export type AstOperand = AstRegister | AstMemoryExpression | AstMemoryOffset | AstNumber | string
 
 export class AstAssembly extends AstNode {
   opcode: string
