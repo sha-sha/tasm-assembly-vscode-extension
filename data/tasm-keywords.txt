@@ -1,0 +1,6 @@
+MOV
+AX
+BX
+CX
+DX
+ENDP

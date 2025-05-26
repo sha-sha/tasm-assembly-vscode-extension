@@ -22,11 +22,14 @@ class Lexer {
     ['+', BasicTokenId.PLUS],
     ['/', BasicTokenId.SLASH],
     ['*', BasicTokenId.STAR],
-    ['@', BasicTokenId.AT],
+    ['>', BasicTokenId.GREATER_THAN],
+    ['<', BasicTokenId.LESS_THAN],
   ]);
 
   private regexpList: Map<RegExp, TokenId> = new Map([
     [/[a-zA-Z_]\w*\b/y, BasicTokenId.IDENTIFIER],
+    [/@@[a-zA-Z_]\w*\b/y, BasicTokenId.LOCAL_IDENTIFIER],
+    [/@/y, BasicTokenId.AT],
     [/;.*/y, BasicTokenId.COMMENT],
     [/\d+\b/y, BasicTokenId.NUMBER],
     [/\d[\da-fA-F]*[hH]\b/y, BasicTokenId.NUMBER],

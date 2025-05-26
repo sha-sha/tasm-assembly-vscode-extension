@@ -115,16 +115,29 @@ export class AstProcedure extends AstNode {
 
 export class AstRegister extends AstNode {
   name: string
-  constructor(mapping: Mapping, name: string) {
+  segment?: string // with segment register
+  constructor(mapping: Mapping, name: string, segment?: string) {
     super(mapping)
     this.name = name
+    this.segment = segment
   }
   prettySelf(indent: number = 0): string {
-    return " ".repeat(indent) + `${this.name}`
+    return " ".repeat(indent) + (this.segment ? `${this.segment}:` : '') + `${this.name}`
   }
 }
 
 export class AstNumber extends AstNode {
+  value: number
+  constructor(mapping: Mapping, value: number) {
+    super(mapping)
+    this.value = value
+  }
+  prettySelf(indent: number = 0): string {
+    return " ".repeat(indent) + `${this.value}`
+  }
+}
+
+export class AstNumberExpression extends AstNode {
   value: number
   constructor(mapping: Mapping, value: number) {
     super(mapping)
@@ -149,13 +162,15 @@ export class AstMemoryOffset extends AstNode {
 export class AstMemoryExpression extends AstNode {
   base: AstRegister | string
   offset?: AstRegister | number
-  constructor(mapping: Mapping, base: AstRegister | string, offset?: AstRegister | number) {
+  cast?: 'byte' | 'word'
+  constructor(mapping: Mapping, base: AstRegister | string, offset?: AstRegister | number, cast?: 'byte' | 'word') {
     super(mapping)
     this.base = base
     this.offset = offset
+    this.cast = cast
   }
   prettySelf(indent: number = 0): string {
-    return " ".repeat(indent) + `[${this.base}${(this.offset !== undefined) ? '+' + this.offset : ""}]`
+    return " ".repeat(indent) + '[' + (this.cast ? this.cast + ' ptr' : '') + `${this.base}${(this.offset !== undefined) ? '+' + this.offset : ""}]`
   }
 }
 

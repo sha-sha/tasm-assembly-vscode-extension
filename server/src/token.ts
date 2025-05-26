@@ -1,3 +1,5 @@
+import { AsmCommandId } from "./x86";
+
 enum KeywordId {
   // keyword tokens
   IDEAL = "IDEAL",
@@ -21,39 +23,11 @@ enum KeywordId {
   ENDM = "ENDM",
   INCLUDE = "INCLUDE",
   OFFSET = "OFFSET",
+  BYTE = "BYTE",
+  WORD = "WORD",
+  PTR = "PTR",
 }
 
-enum AsmCommandId {
-  // Assembly instructions
-  MOV = "MOV",
-  ADD = "ADD",
-  SUB = "SUB",
-  MUL = "MUL",
-  DIV = "DIV",
-  INC = "INC",
-  DEC = "DEC",
-  JMP = "JMP",
-  CALL = "CALL",
-  RET = "RET",
-  PUSH = "PUSH",
-  POP = "POP",
-  CMP = "CMP",
-  TEST = "TEST",
-  JE = "JE",
-  JNE = "JNE",
-  JG = "JG",
-  JL = "JL",
-  JGE = "JGE",
-  JLE = "JLE",
-  AND = "AND",
-  OR = "OR",
-  XOR = "XOR",
-  NOT = "NOT",
-  SHL = "SHL",
-  SHR = "SHR",
-  PUSHA = "PUSHA",
-  POPA = "POPA",
-}
 
 enum BasicTokenId {
   // Single-character tokens
@@ -63,6 +37,8 @@ enum BasicTokenId {
   RIGHT_BRACE = "}",
   LEFT_BRACKET = "[",
   RIGHT_BRACKET = "]",
+  LESS_THAN = "<",
+  GREATER_THAN = ">",
   COLON = ":",
   COMMA = ",",
   DOT = ".",
@@ -76,6 +52,7 @@ enum BasicTokenId {
 
   // Literals.
   IDENTIFIER = "IDENTIFIER",
+  LOCAL_IDENTIFIER = "LOCAL_IDENTIFIER",
   STRING = "STRING",
   NUMBER = "NUMBER",
   COMMENT = "COMMENT",

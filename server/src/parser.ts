@@ -39,7 +39,7 @@ class Parser {
     this.reporter = reporter
   }
 
-  public parse(): AstNode | null {
+  public parse(): AstRoot | null {
     this.tokens = this.lexer.tokenize();
     this.position = 0;
     if (this.tokens.length === 0) {
@@ -147,19 +147,25 @@ class Parser {
     // MACRO, INCLUDE, constants, proc
     var i = 0
     while (token.id !== BasicTokenId.EOF && token.id !== BasicTokenId.UNKNOWN && token.id !== KeywordId.DATASEG && token.id !== KeywordId.CODESEG) {
-      if (token.id === KeywordId.MACRO) {
-        node.children.push(this.parseMacro())
-      } else if (token.id === KeywordId.INCLUDE) {
-        node.children.push(this.parseInclude())
-      } else if (token.id === KeywordId.PROC) {
-        node.children.push(this.parseProcedure())
-      } else if (token.id === BasicTokenId.AT) {
-        node.children.push(this.parseLabel())
-      } else {
-        const nodes = this.parseCodeBlock()
-        for (const n of nodes) {
-          node.children.push(n)
+      try {
+        if (token.id === KeywordId.MACRO) {
+          node.children.push(this.parseMacro())
+        } else if (token.id === KeywordId.INCLUDE) {
+          node.children.push(this.parseInclude())
+        } else if (token.id === KeywordId.PROC) {
+          node.children.push(this.parseProcedure())
+        } else if (token.id === BasicTokenId.LOCAL_IDENTIFIER) {
+          node.children.push(this.parseLabel())
+        } else if (token.id === BasicTokenId.IDENTIFIER && this.peek(1).id === BasicTokenId.COLON) {
+          node.children.push(this.parseLabel())
+        } else {
+          const nodes = this.parseCodeBlock()
+          for (const n of nodes) {
+            node.children.push(n)
+          }
         }
+      } catch (error) {
+        this.consumeTilNewLine()
       }
 
       if (i++ > 400) {
@@ -179,46 +185,51 @@ class Parser {
     while (this.peek().id !== BasicTokenId.EOF) {
       const token = this.peek();
       const node: Array<AstNode> = []
-      if (token.id === KeywordId.INCLUDE) {
-        nodes.push(this.parseInclude())
-      } else if (token.id === BasicTokenId.AT) {
-        nodes.push(this.parseLabel())
-      } else if (token.id === BasicTokenId.IDENTIFIER) {
-        const nextToken = this.peek(1)
-        if (nextToken.id === KeywordId.EQU) {
-          nodes.push(this.parseConstant())
-        } else if (nextToken.id === BasicTokenId.COLON) {
-          nodes.push(this.parseLabel())
-        } else {
-          this.reporter.reportError(`unexpected token '${nextToken.text}'`, nextToken.mapping.range)
-          this.consumeTilNewLine()
-        }
-      } else if (token.id in AsmCommandId) {
-        const startToken = this.consume(token.id)
-        const opcode = startToken.text
-        let operand1: AstOperand | undefined
-        let operand2: AstOperand | undefined
-        if (this.peek().id !== BasicTokenId.NEWLINE) {
-          operand1 = this.parseOperand()
-          if (!operand1) {
+      try {
+        if (token.id === KeywordId.INCLUDE) {
+          nodes.push(this.parseInclude())
+        } else if (token.id === BasicTokenId.IDENTIFIER) {
+          const nextToken = this.peek(1)
+          if (nextToken.id === KeywordId.EQU) {
+            nodes.push(this.parseConstant())
+          } else if (nextToken.id === BasicTokenId.COLON) {
+            nodes.push(this.parseLabel())
+          } else {
+            this.reporter.reportError(`unexpected token '${nextToken.text}'`, nextToken.mapping.range)
             this.consumeTilNewLine()
-            continue
           }
-          if (this.peek().id === BasicTokenId.COMMA) {
-            this.consume(BasicTokenId.COMMA)
-            operand2 = this.parseOperand()
-            if (!operand2) {
+        } else if (token.id === BasicTokenId.LOCAL_IDENTIFIER) {
+          nodes.push(this.parseLabel())
+        } else if (token.id in AsmCommandId) {
+          const startToken = this.consume(token.id)
+          const opcode = startToken.text
+          let operand1: AstOperand | undefined
+          let operand2: AstOperand | undefined
+          if (this.peek().id !== BasicTokenId.NEWLINE) {
+            operand1 = this.parseOperand()
+            if (!operand1) {
               this.consumeTilNewLine()
               continue
             }
+            if (this.peek().id === BasicTokenId.COMMA) {
+              this.consume(BasicTokenId.COMMA)
+              operand2 = this.parseOperand()
+              if (!operand2) {
+                this.consumeTilNewLine()
+                continue
+              }
+            }
           }
+          this.consumeNewline()
+          nodes.push(new AstAssembly(newMapping(startToken, token), opcode, operand1, operand2))
+        } else {
+          break // end of code block, continue elsewhere
         }
-        this.consumeNewline()
-        nodes.push(new AstAssembly(newMapping(startToken, token), opcode, operand1, operand2))
-      } else {
-        break // end of code block, continue elsewhere
+      } catch (error) {
+        this.consumeTilNewLine()
       }
     }
+
     return nodes
   }
 
@@ -232,15 +243,34 @@ class Parser {
       } else {
         return name.text
       }
-      this.reporter.reportError('expected register', name.mapping.range)
+    } else if (token.id === BasicTokenId.LOCAL_IDENTIFIER) {
+      return this.consume(BasicTokenId.LOCAL_IDENTIFIER).text
     } else if (token.id === KeywordId.OFFSET) {
       const token = this.consume(KeywordId.OFFSET)
       const variable = this.consume(BasicTokenId.IDENTIFIER)
       return new AstMemoryOffset(newMapping(token, variable), variable.text)
     } else if (token.id === BasicTokenId.LEFT_BRACKET) {
       const start = this.consume(BasicTokenId.LEFT_BRACKET)
+      var cast: 'byte' | 'word' | undefined
+      if (this.peek().id == KeywordId.BYTE || this.peek().id === KeywordId.WORD) {
+        const castToken = this.consume(this.peek().id)
+        this.consume(KeywordId.PTR)
+        cast = castToken.id === KeywordId.BYTE ? 'byte' : 'word'
+      }
       const name = this.consume(BasicTokenId.IDENTIFIER)
-      const base = (AsmRegisters.has(name.text.toLowerCase())) ? new AstRegister(name.mapping, name.text) : name.text
+      var base: AstRegister | string
+      if ((AsmRegisters.has(name.text.toLowerCase()))) {
+        // check for reg:reg like es:di
+        if (this.peek().id === BasicTokenId.COLON) {
+          this.consume(BasicTokenId.COLON)
+          const otherReg = this.consume(BasicTokenId.IDENTIFIER)
+          base = new AstRegister(name.mapping, otherReg.text, name.text)
+        } else {
+          base = new AstRegister(name.mapping, name.text)
+        }
+      } else {
+        base = name.text
+      }
       var offset: AstRegister | number | undefined
       if (this.peek().id === BasicTokenId.PLUS) {
         this.consume(BasicTokenId.PLUS)
@@ -255,10 +285,10 @@ class Parser {
           }
         }
         const end = this.consume(BasicTokenId.RIGHT_BRACKET)
-        return new AstMemoryExpression(newMapping(start, end), base, offset)
+        return new AstMemoryExpression(newMapping(start, end), base, offset, cast)
       } else {
         const end = this.consume(BasicTokenId.RIGHT_BRACKET)
-        return new AstMemoryExpression(newMapping(start, end), base, offset)
+        return new AstMemoryExpression(newMapping(start, end), base, offset, cast)
       }
     } else if (token.id === BasicTokenId.NUMBER) {
       const number = this.consume(BasicTokenId.NUMBER)
@@ -300,16 +330,11 @@ class Parser {
     return new AstConstant(tokenKey.mapping, tokenKey.text, this.parseNumber(tokenVal))
   }
 
-  private parseLabel(): AstNode {
-    const first = this.peek()
-    if (this.peek().id === BasicTokenId.AT) {
-      this.consume(BasicTokenId.AT)
-      this.consume(BasicTokenId.AT)
-    }
-    const name = this.consume(BasicTokenId.IDENTIFIER)
+  private parseLabel(): AstLabel {
+    const first = this.consume(this.peek().id)
     const last = this.consume(BasicTokenId.COLON)
     this.consumeNewline() // Fix: label can exist before asm command
-    return new AstLabel(newMapping(first, last), name.text)
+    return new AstLabel(newMapping(first, last), first.text)
   }
 
   private parseProcedure(): AstNode {
@@ -321,7 +346,8 @@ class Parser {
     for (const n of nodes) {
       node.children.push(n)
     }
-    this.consume(KeywordId.ENDP)
+    const last = this.consume(KeywordId.ENDP)
+    node.mapping.range.to = last.mapping.range.to
     if (this.peek().id !== BasicTokenId.NEWLINE) {
       const name2 = this.consume(BasicTokenId.IDENTIFIER)
       if (name2.text !== name.text) {
@@ -337,6 +363,10 @@ class Parser {
   }
 
   private consumeNewline(): Token {
+    if (this.peek().id === BasicTokenId.EOF) {
+      this.reporter.reportInfo(`missing new-line at the end of the file`, this.peek().mapping.range)
+      return this.peek()
+    }
     const token = this.consume(BasicTokenId.NEWLINE)
     while (this.peek().id === BasicTokenId.NEWLINE) {
       this.consume(BasicTokenId.NEWLINE)
@@ -363,7 +393,6 @@ class Parser {
       throw new Error("Unexpected end of file");
     }
     if (token.id === id) {
-      this.reporter.log(`consuming ${token.text} at ${token.mapping.range.from}`)
       this.position++;
       return token;
     }

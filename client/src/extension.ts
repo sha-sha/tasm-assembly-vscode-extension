@@ -14,7 +14,7 @@ import {
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-  console.log('xxx CLIENT: TASM extension activating...');
+  console.log('CLIENT: TASM extension activating...');
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(
     path.join('server', 'out', 'server.js')
@@ -61,7 +61,7 @@ export function activate(context: ExtensionContext) {
 
   // Start the client. This will also launch the server
   client.start();
-  console.log('xxx CLIENT: LanguageClient started.');
+  console.log('CLIENT: LanguageClient started.');
 }
 
 export function deactivate(): Thenable<void> | undefined {

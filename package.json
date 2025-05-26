@@ -34,7 +34,36 @@
         "scopeName": "source.tasm",
         "path": "./syntaxes/tasm.tmLanguage.json"
       }
-    ]
+    ],
+    "configurationDefaults": {
+      "cSpell.dictionaryDefinitions": [
+        {
+          "name": "tasm-internal-dict",
+          "path": "${extensionPath}/data/tasm-keywords.txt",
+          "description": "TASM Assembly keywords for cSpell",
+          "scope": "user"
+        }
+      ],
+      "cSpell.languageSettings": [
+        {
+          "languageId": "tasm",
+          "dictionaries": [
+            "tasm-internal-dict"
+          ],
+          "words": [
+            "pusha",
+            "popa",
+            "dataseg",
+            "codeseg",
+            "endp",
+            "struc"
+          ],
+          "ignoreRegExpList": [
+            "/0x[0-9a-fA-F]+/g"
+          ]
+        }
+      ]
+    }
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
