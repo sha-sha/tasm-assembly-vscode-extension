@@ -40,7 +40,7 @@ const vscode_1 = require("vscode");
 const node_1 = require("vscode-languageclient/node");
 let client;
 function activate(context) {
-    console.log('xxx CLIENT: TASM extension activating...');
+    console.log('CLIENT: TASM extension activating...');
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
     // If the extension is launched in debug mode then the debug server options are used
@@ -78,7 +78,7 @@ function activate(context) {
     serverOptions, clientOptions);
     // Start the client. This will also launch the server
     client.start();
-    console.log('xxx CLIENT: LanguageClient started.');
+    console.log('CLIENT: LanguageClient started.');
 }
 function deactivate() {
     if (!client) {

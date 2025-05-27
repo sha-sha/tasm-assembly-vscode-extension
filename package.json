@@ -1,8 +1,17 @@
 {
-  "name": "tasm-ext",
-  "displayName": "tasm-ext",
-  "description": "TASM",
+  "name": "tasm-assembly-language-support",
+  "displayName": "TASM Assembly Language Support",
+  "description": "Provides language support for TASM Assembly, including syntax highlighting, IntelliSense, and more.",
   "version": "0.0.1",
+  "publisher": "ShaulArbiv",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sha-sha/tasm-assembly-vscode-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sha-sha/tasm-assembly-vscode-extension/issues"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -65,15 +74,27 @@
       ]
     }
   },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "npm run compile-client && npm run compile-server",
+    "watch": "npm run watch-client & npm run watch-server",
+    "postinstall": "npm install --prefix client && npm install --prefix server",
+    "test": "npm run compile && npm run test-unit",
+    "compile-client": "cd client && npm run compile",
+    "watch-client": "cd client && npm run watch",
+    "test-client": "cd client && npm run test",
+    "compile-server": "cd server && npm run compile",
+    "watch-server": "cd server && npm run watch",
+    "test-server": "cd server && npm run test"
+  },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.100.0",
-    "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.1",
     "@types/node": "^20.10.0",
-    "glob": "^8.1.0",
+    "glob": "^11.0.2",
     "mocha": "^10.2.0",
     "typescript": "^5.8.3",
     "@vscode/test-electron": "^2.3.4"

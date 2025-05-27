@@ -12,7 +12,16 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   TextDocumentChangeEvent,
-  WorkspaceFolder
+  WorkspaceFolder,
+  DefinitionParams,
+  CancellationToken,
+  WorkDoneProgressReporter,
+  ResultProgressReporter,
+  DefinitionLink,
+  HandlerResult,
+  Definition,
+  LocationLink,
+  ServerRequestHandler
 } from 'vscode-languageserver/node';
 
 import { URI } from 'vscode-uri'
@@ -68,7 +77,7 @@ connection.onInitialize((params: InitializeParams) => {
       // Tell the client that the server supports hover
       // hoverProvider: true,
       // Tell the client that the server supports goto definition
-      // definitionProvider: true,
+      definitionProvider: true,
       // Tell the client that the server supports diagnostics
       // We will implement diagnostics later
     }
@@ -96,6 +105,41 @@ connection.onInitialized(() => {
       connection.console.log('Workspace folder change event received.');
     });
   }
+});
+
+connection.onDefinition((params: DefinitionParams, token: CancellationToken, workDoneProgress: WorkDoneProgressReporter, resultProgress?: ResultProgressReporter<LocationLink[]>): HandlerResult<Definition | DefinitionLink[] | undefined | null, void> => {
+  const { textDocument, position } = params;
+  const documentUri = textDocument.uri;
+  const doc = documents.get(documentUri); // 'documents' is your TextDocuments manager
+
+  if (!doc) {
+    return null;
+  }
+
+  connection.console.log(`Go to Definition request for: ${documentUri} at ${position.line}:${position.character}`);
+
+  // // 1. Identify the symbol/token at the given position
+  // // You'll need logic to get the word/token at the cursor.
+  // // This might involve analyzing the line's text or querying your AST if available for the document.
+  // const word = getWordAtPosition(doc, position); // Implement this helper function
+  // if (!word) {
+  //   return null;
+  // }
+  // connection.console.log(`Identified symbol: ${word}`);
+
+  // // // 2. Look up the symbol in your symbol table
+  // // // This is a simplified lookup. You'll need to consider scope.
+  // // // For example, if 'word' is a local label, search within the current procedure's scope first.
+  // // const symbolInfo = findSymbolDefinition(word, documentUri); // Implement this (searches your symbol table)
+
+  // // if (symbolInfo && symbolInfo.definition) {
+  // //   connection.console.log(`Found definition at: ${symbolInfo.definition.uri} range: ${JSON.stringify(symbolInfo.definition.range)}`);
+  // //   return symbolInfo.definition; // symbolInfo.definition should be of type Location
+  // // } else {
+  // //   connection.console.log(`Definition not found for: ${word}`);
+  // //   return null;
+  // // }
+  return [];
 });
 
 // The example settings
@@ -186,6 +230,9 @@ documents.onDidClose(e => {
 documents.onDidChangeContent(change => {
   validateTextDocument(change.document);
 });
+
+
+
 
 async function getRelativePath(uri: string): Promise<string | null> {
   try {
@@ -336,6 +383,10 @@ documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
 });
 documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
   connection.console.log(`Document saved:, ${event.document.uri}`);
+  validateTextDocument(event.document);
+});
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
+  connection.console.log(`Document opened: ${event.document.uri}`);
   validateTextDocument(event.document);
 });
 

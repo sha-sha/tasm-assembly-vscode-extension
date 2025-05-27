@@ -1,4 +1,4 @@
-import { AstAssembly, AstCodeSegment, AstNode, AstProcedure } from "./ast";
+import { AstAssembly, AstCodeSegment, AstNode, AstProcedure, AstRoot } from "./ast";
 import Lexer from "./lexer";
 import { Parser } from "./parser";
 import { Reporter } from "./reporter";
@@ -34,7 +34,7 @@ function validateMatchingPopAll(procedure: AstProcedure, reporter: Reporter) {
   }
 }
 
-export function scanFile(name: string, content: string, reporter: Reporter) {
+export function scanFile(name: string, content: string, reporter: Reporter): AstRoot | null {
   const lexer = new Lexer(name, content, reporter)
   const parser = new Parser(lexer, reporter)
   const ast = parser.parse()
@@ -47,8 +47,5 @@ export function scanFile(name: string, content: string, reporter: Reporter) {
       validateMatchingPopAll(procedure, reporter)
     })
   }
-
-
-
-
+  return ast;
 }

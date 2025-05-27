@@ -4,7 +4,7 @@
   "description": "TASM Language Server",
   "main": "out/server.js",
   "scripts": {
-    "build": "tsc",
+    "compile": "tsc",
     "watch": "tsc -w"
   },
   "keywords": [],
